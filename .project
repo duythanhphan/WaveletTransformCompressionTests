@@ -3,6 +3,7 @@
 	<name>WaveletTransformCompressionTests</name>
 	<comment></comment>
 	<projects>
+		<project>WaveletTransformCompression</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
