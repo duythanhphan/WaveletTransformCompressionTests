@@ -75,6 +75,7 @@ BOOST_AUTO_TEST_CASE( SimpleHaarInverseTransformTest ) {
 			BOOST_CHECK_CLOSE(testData[(row * testWidth) + column], haarTransform.getItem(row, column), DOUBLE_CLOSE);
 		}
 	}
+
 	delete[] testData;
 }
 
@@ -97,6 +98,31 @@ BOOST_AUTO_TEST_CASE( SimpleHaarInverseTransformDifferentWidthHeightTest ) {
 			BOOST_CHECK_CLOSE(testData[(row * testWidth) + column], haarTransform.getItem(row, column), DOUBLE_CLOSE);
 		}
 	}
+
+	delete[] testData;
+}
+
+BOOST_AUTO_TEST_CASE( HaarTransformSizeDifferentFromPowerOfTwo ) {
+	unsigned int testWidth = 65;
+	unsigned int testHeight = 129;
+	double* testData = new double[testWidth * testHeight];
+	double inputData = 0.0;
+	for(unsigned int i = 0; i < testWidth * testHeight; ++i) {
+		inputData += 1.0;
+		testData[i] = inputData;
+	}
+
+	HaarWaveletTransform haarTransform(testData, testWidth, testHeight);
+	haarTransform.transform();
+	haarTransform.inverseTransform();
+
+	for(unsigned int row = 0; row < testHeight; ++row) {
+		for(unsigned int column = 0; column < testWidth; ++column) {
+			BOOST_CHECK_CLOSE(testData[(row * testWidth) + column], haarTransform.getItem(row, column), DOUBLE_CLOSE);
+		}
+	}
+
+	delete[] testData;
 }
 
 BOOST_AUTO_TEST_SUITE_END()
