@@ -10,6 +10,7 @@
 
 #include "HaarWaveletTransform.h"
 #include "UnsignedInteger.h"
+#include "Quantizer.h"
 
 const double DOUBLE_CLOSE = 0.0001;
 
@@ -161,6 +162,35 @@ BOOST_AUTO_TEST_CASE( getClosestPowerOfTwoTest ) {
 	BOOST_CHECK_EQUAL(UnsignedInteger::getClosestPowerOfTwo(1024), 1024u);
 	BOOST_CHECK_EQUAL(UnsignedInteger::getClosestPowerOfTwo(256), 256u);
 	BOOST_CHECK_EQUAL(UnsignedInteger::getClosestPowerOfTwo(4), 4u);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( QuantizerTests )
+
+BOOST_AUTO_TEST_CASE( QuantizerRoundTest ) {
+	BOOST_CHECK_EQUAL(0.0, Quantizer::round(-0.3));
+	BOOST_CHECK_EQUAL(0.0, Quantizer::round(0.3));
+	BOOST_CHECK_EQUAL(-1.0, Quantizer::round(-0.6));
+	BOOST_CHECK_EQUAL(1.0, Quantizer::round(0.6));
+	BOOST_CHECK_EQUAL(0.0, Quantizer::round(0.00000001));
+	BOOST_CHECK_EQUAL(0.0, Quantizer::round(-0.00000001));
+	BOOST_CHECK_EQUAL(0.0, Quantizer::round(0.5));
+	BOOST_CHECK_EQUAL(-1.0, Quantizer::round(-0.5));
+	BOOST_CHECK_EQUAL(10.0, Quantizer::round(10.123456789123456789));
+	BOOST_CHECK_EQUAL(-10.0f, Quantizer::round(-10.123456789123456789));
+}
+
+BOOST_AUTO_TEST_CASE( QuantizerGetApproximationTest ) {
+	Quantizer quantizer(-127.5, 255.0, 1.0, -127.0);
+
+	BOOST_CHECK_EQUAL(0.0, quantizer.getApproximation(0.3));
+	BOOST_CHECK_EQUAL(0.0, quantizer.getApproximation(-0.3));
+	BOOST_CHECK_EQUAL(1.0, quantizer.getApproximation(0.5));
+	BOOST_CHECK_EQUAL(0.0, quantizer.getApproximation(-0.5));
+
+	BOOST_CHECK_EQUAL(-127.0, quantizer.getApproximation(-126.6));
+	BOOST_CHECK_EQUAL(-126.0, quantizer.getApproximation(-125.6));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
