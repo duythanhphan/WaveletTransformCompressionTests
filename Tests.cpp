@@ -11,6 +11,8 @@
 #include "HaarWaveletTransform.h"
 #include "UnsignedInteger.h"
 #include "Quantizer.h"
+#include "Heap.h"
+#include "HuffmanCoding.h"
 
 const double DOUBLE_CLOSE = 0.0001;
 
@@ -164,6 +166,58 @@ BOOST_AUTO_TEST_CASE( getClosestPowerOfTwoTest ) {
 	BOOST_CHECK_EQUAL(UnsignedInteger::getClosestPowerOfTwo(4), 4u);
 }
 
+BOOST_AUTO_TEST_CASE( setBitFromRightTest ) {
+	unsigned int testInt = 0;
+
+	UnsignedInteger::setBitFromRight(&testInt, 0);
+	BOOST_CHECK_EQUAL(testInt, 1u);
+
+	UnsignedInteger::setBitFromRight(&testInt, 1);
+	BOOST_CHECK_EQUAL(testInt, 3u);
+
+	UnsignedInteger::setBitFromRight(&testInt, 2);
+	BOOST_CHECK_EQUAL(testInt, 7u);
+
+	UnsignedInteger::setBitFromRight(&testInt, 3);
+	BOOST_CHECK_EQUAL(testInt, 15u);
+
+	testInt = 0;
+	UnsignedInteger::setBitFromRight(&testInt, 16);
+	BOOST_CHECK_EQUAL(testInt, 65536u);
+}
+
+BOOST_AUTO_TEST_CASE( setBitFromLeftTest ) {
+	unsigned int testInt = 0;
+
+	UnsignedInteger::setBitFromLeft(&testInt, 31);
+	BOOST_CHECK_EQUAL(testInt, 1u);
+
+	UnsignedInteger::setBitFromLeft(&testInt, 30);
+	BOOST_CHECK_EQUAL(testInt, 3u);
+
+	UnsignedInteger::setBitFromLeft(&testInt, 29);
+	BOOST_CHECK_EQUAL(testInt, 7u);
+
+	UnsignedInteger::setBitFromLeft(&testInt, 28);
+	BOOST_CHECK_EQUAL(testInt, 15u);
+}
+
+BOOST_AUTO_TEST_CASE( reverseIntTest ) {
+	unsigned int toReverse = 0;
+
+	UnsignedInteger::setBitFromLeft(&toReverse, 0);
+	UnsignedInteger::setBitFromLeft(&toReverse, 1);
+	UnsignedInteger::setBitFromLeft(&toReverse, 3);
+	UnsignedInteger::setBitFromLeft(&toReverse, 4);
+	UnsignedInteger::setBitFromLeft(&toReverse, 5);
+	UnsignedInteger::setBitFromLeft(&toReverse, 8);
+
+	unsigned int reversed = UnsignedInteger::reverse(toReverse);
+	BOOST_CHECK_EQUAL(reversed, 315u);
+
+	BOOST_CHECK_EQUAL(UnsignedInteger::reverse(reversed), toReverse);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE( QuantizerTests )
@@ -189,6 +243,96 @@ BOOST_AUTO_TEST_CASE( QuantizerGetApproximationTest ) {
 
 	BOOST_CHECK_EQUAL(0.0, Quantizer::getApproximation(0.1 / 2.0, 0.1));
 	BOOST_CHECK_EQUAL(-0.1, Quantizer::getApproximation(-0.1 / 2.0, 0.1));
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( HeapTests )
+
+BOOST_AUTO_TEST_CASE( HeapDequeue ) {
+	int heapData[10] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+	int result[10] = {10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+	Heap<int> testHeap(heapData, 10);
+	testHeap.buildHeap();
+
+	int counter = 0;
+	while(testHeap.getHeapSize() > 0) {
+		BOOST_REQUIRE(counter < 10);
+		BOOST_CHECK_EQUAL(testHeap.dequeue(), result[counter]);
+		++counter;
+	}
+}
+
+BOOST_AUTO_TEST_CASE( HeapEnqueue ) {
+	int heapData[20];
+	Heap<int> testHeap(heapData, 0, 20);
+	int result[20] = {20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+	int inputData[20] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+
+	for(int i = 0; i < 20; ++i) {
+		testHeap.enqueue(inputData[i]);
+	}
+
+	int counter = 0;
+	while(testHeap.getHeapSize() > 0) {
+		BOOST_REQUIRE(counter < 20);
+		BOOST_CHECK_EQUAL(testHeap.dequeue(), result[counter]);
+		++counter;
+	}
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( HuffmanCodingTests )
+
+BOOST_AUTO_TEST_CASE( QueueItemTest ) {
+	HuffmanCoding<double>::QueueItem item1, item2;
+	HuffmanCoding<double>::Node node, node2;
+	node.count = 120;
+	node2.count = 10;
+	HuffmanCoding<double>::Node* nullNode = 0;
+
+	BOOST_CHECK_EQUAL(item1.node, nullNode);
+
+	item1.node = &node;
+
+	item2 = item1;
+	BOOST_CHECK_EQUAL(item2.node, &node);
+
+	HuffmanCoding<double>::QueueItem item3(item2);
+	BOOST_CHECK_EQUAL(item3.node, &node);
+
+	HuffmanCoding<double>::QueueItem item4;
+	item4.node = &node2;
+	BOOST_CHECK_EQUAL(item4 > item1, true);
+	BOOST_CHECK_EQUAL(item1 > item4, false);
+	BOOST_CHECK_EQUAL(item4 < item1, false);
+	BOOST_CHECK_EQUAL(item1 < item4, true);
+}
+
+BOOST_AUTO_TEST_CASE( HuffmanCodingSimpleTest ) {
+	HuffmanCoding<char>::Leaf* pLeafs = new HuffmanCoding<char>::Leaf[7];
+	pLeafs[0].value = 'a';
+	pLeafs[0].count = 7;
+	pLeafs[1].value = 'b';
+	pLeafs[1].count = 10;
+	pLeafs[2].value = 'c';
+	pLeafs[2].count = 2;
+	pLeafs[3].value = 'd';
+	pLeafs[3].count = 30;
+	pLeafs[4].value = 'e';
+	pLeafs[4].count = 11;
+	pLeafs[5].value = 'f';
+	pLeafs[5].count = 6;
+	pLeafs[6].value = 'g';
+	pLeafs[6].count = 25;
+	HuffmanCoding<char> huffmanCoding(pLeafs, 7);
+
+	huffmanCoding.createCodeTable();
+
+	std::map<char, int> codeTable;
+	bool createResult = huffmanCoding.getTable(codeTable);
+	BOOST_CHECK(createResult);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
