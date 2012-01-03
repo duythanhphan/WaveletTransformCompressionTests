@@ -182,15 +182,13 @@ BOOST_AUTO_TEST_CASE( QuantizerRoundTest ) {
 }
 
 BOOST_AUTO_TEST_CASE( QuantizerGetApproximationTest ) {
-	Quantizer quantizer(-127.5, 255.0, 1.0, -127.0);
+	BOOST_CHECK_EQUAL(0.0, Quantizer::getApproximation(0.3, 1.0));
+	BOOST_CHECK_EQUAL(0.0, Quantizer::getApproximation(-0.3, 1.0));
+	BOOST_CHECK_EQUAL(-1.0, Quantizer::getApproximation(-0.5, 1.0));
+	BOOST_CHECK_EQUAL(0.0, Quantizer::getApproximation(0.5, 1.0));
 
-	BOOST_CHECK_EQUAL(0.0, quantizer.getApproximation(0.3));
-	BOOST_CHECK_EQUAL(0.0, quantizer.getApproximation(-0.3));
-	BOOST_CHECK_EQUAL(1.0, quantizer.getApproximation(0.5));
-	BOOST_CHECK_EQUAL(0.0, quantizer.getApproximation(-0.5));
-
-	BOOST_CHECK_EQUAL(-127.0, quantizer.getApproximation(-126.6));
-	BOOST_CHECK_EQUAL(-126.0, quantizer.getApproximation(-125.6));
+	BOOST_CHECK_EQUAL(0.0, Quantizer::getApproximation(0.1 / 2.0, 0.1));
+	BOOST_CHECK_EQUAL(-0.1, Quantizer::getApproximation(-0.1 / 2.0, 0.1));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
