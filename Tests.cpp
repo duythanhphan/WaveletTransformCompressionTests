@@ -16,7 +16,7 @@
 
 const double DOUBLE_CLOSE = 0.0001;
 
-BOOST_AUTO_TEST_SUITE( HaarTransformTests )
+BOOST_AUTO_TEST_SUITE( SimpleTests )
 
 BOOST_AUTO_TEST_CASE( ShiftMultiplicationTest ) {
 	unsigned int i = 1;
@@ -29,6 +29,39 @@ BOOST_AUTO_TEST_CASE( ShiftMultiplicationTest ) {
 	i <<= 1;
 	BOOST_CHECK_EQUAL(i, 16u);
 }
+
+BOOST_AUTO_TEST_CASE( ShiftTest ) {
+	unsigned int toShift = 0;
+	toShift |= 1;
+	toShift |= 1 << 1;
+	toShift |= 1 << 4;
+	toShift |= 1 << 6;
+	BOOST_CHECK_EQUAL(toShift, 83u);
+	//toShift
+	//6  5  4  3  2  1  0
+	//1  0  1  0  0  1  1
+	//31 30 29 28 27 26 25
+
+	unsigned int size = sizeof(unsigned int) * 8 - 1;
+	unsigned int shift = size - 6;
+	toShift <<= shift;
+
+	unsigned int test = 0;
+	test |= 1 << 31;
+	test |= 1 << 29;
+	test |= 1 << 26;
+	test |= 1 << 25;
+
+	BOOST_CHECK_EQUAL(test, toShift);
+
+	unsigned int a = 3;
+	a <<= 2;
+	BOOST_CHECK_EQUAL(a, 12u);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( HaarTransformTests )
 
 BOOST_AUTO_TEST_CASE( SimpleHaarTransformTest ) {
 	double testData[16];
@@ -216,6 +249,13 @@ BOOST_AUTO_TEST_CASE( reverseIntTest ) {
 	BOOST_CHECK_EQUAL(reversed, 315u);
 
 	BOOST_CHECK_EQUAL(UnsignedInteger::reverse(reversed), toReverse);
+
+	toReverse = 0;
+	UnsignedInteger::setBitFromRight(&toReverse, 0);
+	UnsignedInteger::setBitFromRight(&toReverse, 1);
+	reversed = UnsignedInteger::reverse(toReverse);
+	unsigned int check = 0;
+	UnsignedInteger::setBitFromLeft(&check, 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
@@ -281,6 +321,42 @@ BOOST_AUTO_TEST_CASE( HeapEnqueue ) {
 	}
 }
 
+BOOST_AUTO_TEST_CASE( QueueItemTest ) {
+	HuffmanCoding<char>::Leaf pLeafs[7];
+	pLeafs[0].value = 'a';
+	pLeafs[0].count = 7;
+	pLeafs[1].value = 'b';
+	pLeafs[1].count = 10;
+	pLeafs[2].value = 'c';
+	pLeafs[2].count = 2;
+	pLeafs[3].value = 'd';
+	pLeafs[3].count = 30;
+	pLeafs[4].value = 'e';
+	pLeafs[4].count = 11;
+	pLeafs[5].value = 'f';
+	pLeafs[5].count = 6;
+	pLeafs[6].value = 'g';
+	pLeafs[6].count = 25;
+
+	HuffmanCoding<char>::QueueItem pQueueItems[7];
+	for(int i = 0; i < 7; ++i) {
+		pQueueItems[i].node = &pLeafs[i];
+	}
+
+	Heap<HuffmanCoding<char>::QueueItem > heap(pQueueItems, 7);
+	heap.buildHeap();
+
+	HuffmanCoding<char>::QueueItem queueItem;
+	int result[7] = {2, 6, 7, 10, 11, 25, 30};
+	int counter = 0;
+	while(heap.getHeapSize() > 0) {
+		BOOST_REQUIRE(counter < 7);
+		queueItem = heap.dequeue();
+		BOOST_CHECK_EQUAL(queueItem.node->count, result[counter]);
+		++counter;
+	}
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE( HuffmanCodingTests )
@@ -330,9 +406,57 @@ BOOST_AUTO_TEST_CASE( HuffmanCodingSimpleTest ) {
 
 	huffmanCoding.createCodeTable();
 
-	std::map<char, int> codeTable;
+	std::map<char, HuffmanCoding<char>::Code > codeTable;
 	bool createResult = huffmanCoding.getTable(codeTable);
 	BOOST_CHECK(createResult);
+
+	std::map<char, HuffmanCoding<char>::Code >::iterator it;
+	it = codeTable.find('f');
+	BOOST_CHECK(it != codeTable.end());
+
+	unsigned int testCode = 0;
+	UnsignedInteger::setBitFromLeft(&testCode, 2);
+	UnsignedInteger::setBitFromLeft(&testCode, 3);
+	BOOST_CHECK_EQUAL(testCode, it->second.code);
+	BOOST_CHECK_EQUAL(4u, it->second.size);
+
+	it = codeTable.find('a');
+	BOOST_CHECK(it != codeTable.end());
+	BOOST_CHECK_EQUAL(0u, it->second.code);
+
+	it = codeTable.find('c');
+	BOOST_CHECK(it != codeTable.end());
+	testCode = 0;
+	UnsignedInteger::setBitFromLeft(&testCode, 2);
+	BOOST_CHECK_EQUAL(testCode, it->second.code);
+
+	it = codeTable.find('b');
+	BOOST_CHECK(it != codeTable.end());
+	testCode = 0;
+	UnsignedInteger::setBitFromLeft(&testCode, 1);
+	BOOST_CHECK_EQUAL(testCode, it->second.code);
+
+	it = codeTable.find('e');
+	BOOST_CHECK(it != codeTable.end());
+	testCode = 0;
+	UnsignedInteger::setBitFromLeft(&testCode, 1);
+	UnsignedInteger::setBitFromLeft(&testCode, 2);
+	BOOST_CHECK_EQUAL(testCode, it->second.code);
+
+	it = codeTable.find('g');
+	BOOST_CHECK(it != codeTable.end());
+	testCode = 0;
+	UnsignedInteger::setBitFromLeft(&testCode, 0);
+	BOOST_CHECK_EQUAL(testCode, it->second.code);
+
+	it = codeTable.find('d');
+	BOOST_CHECK(it != codeTable.end());
+	testCode = 0;
+	UnsignedInteger::setBitFromLeft(&testCode, 0);
+	UnsignedInteger::setBitFromLeft(&testCode, 1);
+	BOOST_CHECK_EQUAL(testCode, it->second.code);
+
+	delete[] pLeafs;
 }
 
 BOOST_AUTO_TEST_SUITE_END()
