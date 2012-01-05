@@ -13,6 +13,7 @@
 #include "Quantizer.h"
 #include "Heap.h"
 #include "HuffmanCoding.h"
+#include "RLE.h"
 
 const double DOUBLE_CLOSE = 0.0001;
 
@@ -457,6 +458,31 @@ BOOST_AUTO_TEST_CASE( HuffmanCodingSimpleTest ) {
 	BOOST_CHECK_EQUAL(testCode, it->second.code);
 
 	delete[] pLeafs;
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( RLETests )
+
+BOOST_AUTO_TEST_CASE( RLEConstructionTest ) {
+	int data[10] = {1, 1, 1, 1, 5, 5, 5, 5, 2, 2};
+	RLE<int> rle(data, 10);
+
+	BOOST_CHECK_EQUAL(rle.getEncodedDataSize(), 0u);
+	BOOST_CHECK(rle.getData() != 0);
+
+	rle.encode();
+	BOOST_REQUIRE_EQUAL(rle.getEncodedDataSize(), 3u);
+
+	RLE<int>::Run* pData = rle.getData();
+	BOOST_CHECK_EQUAL(pData[0].value, 1);
+	BOOST_CHECK_EQUAL(pData[0].run, 4u);
+
+	BOOST_CHECK_EQUAL(pData[1].value, 5);
+	BOOST_CHECK_EQUAL(pData[1].run, 4u);
+
+	BOOST_CHECK_EQUAL(pData[2].value, 2);
+	BOOST_CHECK_EQUAL(pData[2].run, 2u);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
