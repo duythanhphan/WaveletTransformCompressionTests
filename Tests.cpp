@@ -14,6 +14,7 @@
 #include "Heap.h"
 #include "HuffmanCoding.h"
 #include "RLE.h"
+#include "Encoder.h"
 
 const double DOUBLE_CLOSE = 0.0001;
 
@@ -58,6 +59,25 @@ BOOST_AUTO_TEST_CASE( ShiftTest ) {
 	unsigned int a = 3;
 	a <<= 2;
 	BOOST_CHECK_EQUAL(a, 12u);
+}
+
+BOOST_AUTO_TEST_CASE( CreateOffMaskTest ) {
+	std::map<unsigned int, unsigned int> m_offMasks;
+	unsigned int m_iMaxBitPosition = (sizeof(unsigned int) * 8) - 1;
+
+	unsigned int mask = 0;
+	unsigned int offIndex = m_iMaxBitPosition;
+	for(unsigned int i = 0; i < m_iMaxBitPosition; ++i) {
+		mask |= 1 << i;
+		m_offMasks.insert(std::pair<unsigned int, unsigned int>(offIndex, mask));
+		--offIndex;
+	}
+
+	unsigned int test = 0;
+	test = m_offMasks[31];
+	BOOST_CHECK_EQUAL(test, 1u);
+	test = m_offMasks[30];
+	BOOST_CHECK_EQUAL(test, 3u);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
@@ -483,6 +503,101 @@ BOOST_AUTO_TEST_CASE( RLEConstructionTest ) {
 
 	BOOST_CHECK_EQUAL(pData[2].value, 2);
 	BOOST_CHECK_EQUAL(pData[2].run, 2u);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( EncoderTests )
+
+struct CodesFixture {
+	unsigned int code1;
+	unsigned int size1;
+	unsigned int code2;
+	unsigned int size2;
+	unsigned int code3;
+	unsigned int size3;
+
+	CodesFixture() {
+		code1 = 0;
+		UnsignedInteger::setBitFromLeft(&code1, 1);
+		UnsignedInteger::setBitFromLeft(&code1, 2);
+		size1 = 4;
+
+		code2 = 0;
+		UnsignedInteger::setBitFromLeft(&code2, 0);
+		UnsignedInteger::setBitFromLeft(&code2, 1);
+		UnsignedInteger::setBitFromLeft(&code2, 5);
+		UnsignedInteger::setBitFromLeft(&code2, 6);
+		UnsignedInteger::setBitFromLeft(&code2, 7);
+		size2 = 8;
+
+		code3 = 0;
+		UnsignedInteger::setBitFromLeft(&code3, 2);
+		size3 = 3;
+	}
+	~CodesFixture() { }
+};
+
+BOOST_FIXTURE_TEST_CASE(EncodeBitsTest, CodesFixture) {
+	Encoder encoder(5);
+
+	encoder.encode(code1, size1);
+	encoder.encode(code1, size1);
+	encoder.encode(code1, size1);
+	encoder.encode(code2, size2);
+	encoder.encode(code1, size1);
+	encoder.encode(code3, size3);
+	encoder.encode(code2, size2);
+
+	BOOST_CHECK_EQUAL(encoder.encodedSize(), 2u);
+	unsigned int testValue = 0;
+	UnsignedInteger::setBitFromLeft(&testValue, 0);
+	UnsignedInteger::setBitFromLeft(&testValue, 1);
+	UnsignedInteger::setBitFromLeft(&testValue, 2);
+	BOOST_CHECK_EQUAL(encoder.getData()[1], testValue);
+
+	encoder.encode(code3, size3);
+	UnsignedInteger::setBitFromLeft(&testValue, 5);
+	BOOST_CHECK_EQUAL(encoder.getData()[1], testValue);
+
+	encoder.encode(code3, size3);
+	UnsignedInteger::setBitFromLeft(&testValue, 8);
+	BOOST_CHECK_EQUAL(encoder.getData()[1], testValue);
+}
+
+BOOST_FIXTURE_TEST_CASE(EncoderReallocateTest, CodesFixture) {
+	Encoder encoder(1);
+	BOOST_CHECK_EQUAL(encoder.getSize(), 1u);
+
+	encoder.encode(code1, size1);
+	encoder.encode(code1, size1);
+	encoder.encode(code1, size1);
+	encoder.encode(code2, size2);
+	encoder.encode(code1, size1);
+	encoder.encode(code3, size3);
+	encoder.encode(code2, size2);
+
+	BOOST_CHECK_EQUAL(encoder.getSize(), 2u);
+
+	BOOST_CHECK_EQUAL(encoder.encodedSize(), 2u);
+	unsigned int testValue = 0;
+	UnsignedInteger::setBitFromLeft(&testValue, 0);
+	UnsignedInteger::setBitFromLeft(&testValue, 1);
+	UnsignedInteger::setBitFromLeft(&testValue, 2);
+	BOOST_CHECK_EQUAL(encoder.getData()[1], testValue);
+
+	encoder.encode(code2, size2);
+	encoder.encode(code2, size2);
+	encoder.encode(code2, size2);
+	encoder.encode(code3, size3);
+	encoder.encode(code2, size2);
+
+	testValue = 0;
+	UnsignedInteger::setBitFromLeft(&testValue, 3);
+	UnsignedInteger::setBitFromLeft(&testValue, 4);
+	UnsignedInteger::setBitFromLeft(&testValue, 5);
+	BOOST_REQUIRE_EQUAL(encoder.encodedSize(), 3u);
+	BOOST_CHECK_EQUAL(encoder.getData()[2], testValue);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
