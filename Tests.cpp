@@ -15,6 +15,7 @@
 #include "HuffmanCoding.h"
 #include "RLE.h"
 #include "Encoder.h"
+#include "HuffmanDecoder.h"
 
 const double DOUBLE_CLOSE = 0.0001;
 
@@ -78,6 +79,109 @@ BOOST_AUTO_TEST_CASE( CreateOffMaskTest ) {
 	BOOST_CHECK_EQUAL(test, 1u);
 	test = m_offMasks[30];
 	BOOST_CHECK_EQUAL(test, 3u);
+}
+
+BOOST_AUTO_TEST_CASE( MaskDecodeTest ) {
+	unsigned int testData[2];
+	UnsignedInteger::setBitFromRight(&testData[0], 0);
+	UnsignedInteger::setBitFromRight(&testData[0], 2);
+	UnsignedInteger::setBitFromLeft(&testData[1], 0);
+	UnsignedInteger::setBitFromLeft(&testData[1], 1);
+	UnsignedInteger::setBitFromLeft(&testData[1], 3);
+
+	unsigned int code = 0;
+	unsigned int codeSize = 7;
+	UnsignedInteger::setBitFromLeft(&code, 0);
+	UnsignedInteger::setBitFromLeft(&code, 2);
+	UnsignedInteger::setBitFromLeft(&code, 3);
+	UnsignedInteger::setBitFromLeft(&code, 4);
+	UnsignedInteger::setBitFromLeft(&code, 6);
+
+	unsigned int pos = 29;
+	unsigned int decoded = 0;
+
+	unsigned int lmaskIndex = 32 - pos;
+	unsigned int rmaskIndex = codeSize - lmaskIndex;
+	BOOST_CHECK_EQUAL(lmaskIndex, 3u);
+	BOOST_CHECK_EQUAL(rmaskIndex, 4u);
+
+	unsigned int lMask = 0;
+	UnsignedInteger::setBitFromRight(&lMask, 0);
+	UnsignedInteger::setBitFromRight(&lMask, 1);
+	UnsignedInteger::setBitFromRight(&lMask, 2);
+	unsigned int rMask = 0;
+	UnsignedInteger::setBitFromLeft(&rMask, 0);
+	UnsignedInteger::setBitFromLeft(&rMask, 1);
+	UnsignedInteger::setBitFromLeft(&rMask, 2);
+	UnsignedInteger::setBitFromLeft(&rMask, 3);
+
+	decoded  = testData[0] & lMask;
+	BOOST_CHECK_EQUAL(decoded, 5u);
+	decoded <<= pos;
+	unsigned int testDecoded1 = 0;
+	UnsignedInteger::setBitFromLeft(&testDecoded1, 0);
+	UnsignedInteger::setBitFromLeft(&testDecoded1, 2);
+	BOOST_CHECK_EQUAL(decoded, testDecoded1);
+
+	decoded |= (testData[1] & rMask) >> lmaskIndex;
+	BOOST_CHECK_EQUAL(decoded, code);
+}
+
+BOOST_AUTO_TEST_CASE( CodeLessOperator ) {
+	std::map<HuffmanCoding<double>::Code, double > testMap;
+	HuffmanCoding<double>::Code code;
+	code.code = 8;
+	code.size = 4;
+	testMap.insert(std::pair<HuffmanCoding<double>::Code, double >(code, 4.0));
+	code.code = 2;
+	code.size = 2;
+	testMap.insert(std::pair<HuffmanCoding<double>::Code, double >(code, 2.0));
+	code.code = 1;
+	code.size = 1;
+	testMap.insert(std::pair<HuffmanCoding<double>::Code, double >(code, 1.0));
+	code.code = 4;
+	code.size = 3;
+	testMap.insert(std::pair<HuffmanCoding<double>::Code, double >(code, 3.0));
+
+	std::map<HuffmanCoding<double>::Code, double >::iterator it = testMap.begin();
+	BOOST_REQUIRE(it != testMap.end());
+	BOOST_CHECK_EQUAL(it->first.code, 1u);
+	BOOST_CHECK_EQUAL(it->first.size, 1u);
+	BOOST_CHECK_EQUAL(it->second, 1.0);
+
+	++it;
+	BOOST_REQUIRE(it != testMap.end());
+	BOOST_CHECK_EQUAL(it->first.code, 2u);
+	BOOST_CHECK_EQUAL(it->first.size, 2u);
+	BOOST_CHECK_EQUAL(it->second, 2.0);
+
+	++it;
+	BOOST_REQUIRE(it != testMap.end());
+	BOOST_CHECK_EQUAL(it->first.code, 4u);
+	BOOST_CHECK_EQUAL(it->first.size, 3u);
+	BOOST_CHECK_EQUAL(it->second, 3.0);
+
+	++it;
+	BOOST_REQUIRE(it != testMap.end());
+	BOOST_CHECK_EQUAL(it->first.code, 8u);
+	BOOST_CHECK_EQUAL(it->first.size, 4u);
+	BOOST_CHECK_EQUAL(it->second, 4.0);
+}
+
+BOOST_AUTO_TEST_CASE( ShiftFilledZeroTest ) {
+	unsigned int test = 0;
+	unsigned int mask = 0;
+	for(unsigned int i = 0; i < UnsignedInteger::NUMBER_OF_BITS; ++i) {
+		UnsignedInteger::setBitFromRight(&test, i);
+		UnsignedInteger::setBitFromRight(&mask, i);
+	}
+	test <<= 30;
+
+	unsigned int result = 0;
+	UnsignedInteger::setBitFromLeft(&result, 0);
+	UnsignedInteger::setBitFromLeft(&result, 1);
+
+	BOOST_CHECK_EQUAL(test, result);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
@@ -476,8 +580,6 @@ BOOST_AUTO_TEST_CASE( HuffmanCodingSimpleTest ) {
 	UnsignedInteger::setBitFromLeft(&testCode, 0);
 	UnsignedInteger::setBitFromLeft(&testCode, 1);
 	BOOST_CHECK_EQUAL(testCode, it->second.code);
-
-	delete[] pLeafs;
 }
 
 BOOST_AUTO_TEST_SUITE_END()
@@ -598,6 +700,101 @@ BOOST_FIXTURE_TEST_CASE(EncoderReallocateTest, CodesFixture) {
 	UnsignedInteger::setBitFromLeft(&testValue, 5);
 	BOOST_REQUIRE_EQUAL(encoder.encodedSize(), 3u);
 	BOOST_CHECK_EQUAL(encoder.getData()[2], testValue);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( HuffmanDecoderTests )
+
+BOOST_AUTO_TEST_CASE( HuffmanDecoderTest ) {
+	HuffmanCoding<double>::Leaf* pLeafs = new HuffmanCoding<double>::Leaf[5];
+	pLeafs[0].value = 1.0;
+	pLeafs[0].count = 5;
+	pLeafs[1].value = 2.0;
+	pLeafs[1].count = 2;
+	pLeafs[2].value = 3.0;
+	pLeafs[2].count = 3;
+	pLeafs[3].value = 4.0;
+	pLeafs[3].count = 3;
+	pLeafs[4].value = 5.0;
+	pLeafs[4].count = 1;
+
+	HuffmanCoding<double>::Leaf* nullLeaf = 0;
+	BOOST_REQUIRE_EQUAL(pLeafs[0].left, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[0].right, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[0].parent, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[1].left, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[1].right, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[1].parent, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[2].left, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[2].right, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[2].parent, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[3].left, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[3].right, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[3].parent, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[4].left, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[4].right, nullLeaf);
+	BOOST_REQUIRE_EQUAL(pLeafs[4].parent, nullLeaf);
+
+	double data[14] = {1.0, 2.0, 5.0, 2.0, 1.0, 3.0, 4.0, 1.0, 3.0, 4.0, 1.0, 4.0, 3.0, 1.0};
+	HuffmanCoding<double> huffmanCoding(pLeafs, 5);
+	huffmanCoding.createCodeTable();
+	std::map<double, HuffmanCoding<double>::Code > codeTable;
+	huffmanCoding.getTable(codeTable);
+
+	unsigned int testCode = 0;
+	BOOST_CHECK_EQUAL(testCode, codeTable[4.0].code);
+	BOOST_CHECK_EQUAL(2u, codeTable[4.0].size);
+
+	UnsignedInteger::setBitFromLeft(&testCode, 0);
+	UnsignedInteger::setBitFromLeft(&testCode, 1);
+	BOOST_CHECK_EQUAL(testCode, codeTable[1.0].code);
+	BOOST_CHECK_EQUAL(2u, codeTable[1.0].size);
+
+	testCode = 0;
+	UnsignedInteger::setBitFromLeft(&testCode, 0);
+	BOOST_CHECK_EQUAL(testCode, codeTable[3.0].code);
+	BOOST_CHECK_EQUAL(2u, codeTable[3.0].size);
+
+	testCode = 0;
+	UnsignedInteger::setBitFromLeft(&testCode, 1);
+	UnsignedInteger::setBitFromLeft(&testCode, 2);
+	BOOST_CHECK_EQUAL(testCode, codeTable[2.0].code);
+	BOOST_CHECK_EQUAL(3u, codeTable[2.0].size);
+
+	testCode = 0;
+	UnsignedInteger::setBitFromLeft(&testCode, 1);
+	BOOST_CHECK_EQUAL(testCode, codeTable[5.0].code);
+	BOOST_CHECK_EQUAL(3u, codeTable[5.0].size);
+
+	std::map<HuffmanCoding<double>::Code, double > decodeTable;
+	std::map<double, HuffmanCoding<double>::Code>::iterator it;
+	for(it = codeTable.begin(); it != codeTable.end(); ++it) {
+		decodeTable.insert(std::pair<HuffmanCoding<double>::Code, double >(it->second, it->first));
+	}
+
+	Encoder encoder(5);
+	for(int i = 0; i < 14; ++i) {
+		it = codeTable.find(data[i]);
+		BOOST_REQUIRE(it != codeTable.end());
+		encoder.encode(it->second.code, it->second.size);
+	}
+
+	unsigned int expectedEncodedBits = 0;
+	for(unsigned int i = 0; i < 14; ++i) {
+		expectedEncodedBits += codeTable[data[i]].size;
+	}
+	unsigned int expectedEncodedBytes = (unsigned int)ceil((double)expectedEncodedBits / (double)UnsignedInteger::NUMBER_OF_BITS);
+	BOOST_CHECK_EQUAL(expectedEncodedBytes, encoder.encodedSize());
+
+	HuffmanDecoder<double> huffmanDecoder(encoder.getData(), encoder.encodedSize(), &decodeTable);
+	huffmanDecoder.decode();
+
+	double* pDecodedData = huffmanDecoder.getDecodedData();
+	BOOST_REQUIRE_EQUAL(huffmanDecoder.getDecodedDataSize(), 14u);
+	for(unsigned int i = 0; i < huffmanDecoder.getDecodedDataSize(); ++i) {
+		BOOST_CHECK_EQUAL(pDecodedData[i], data[i]);
+	}
 }
 
 BOOST_AUTO_TEST_SUITE_END()
