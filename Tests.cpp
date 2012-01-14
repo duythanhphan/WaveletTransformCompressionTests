@@ -1003,11 +1003,49 @@ BOOST_AUTO_TEST_CASE( RLEDecoderDecodeTest) {
 
 	double decodeMemory[17];
 	RLEDecoder<double> rleDecoder(runs, 5);
-	rleDecoder.decode(decodeMemory, 17);
+	bool decodeResult = rleDecoder.decode(decodeMemory, 17);
+	BOOST_CHECK(decodeResult);
 
 	double result[17] = {1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 5.0, 5.0};
 	for(int i = 0; i < 17; ++i) {
 		BOOST_CHECK_EQUAL(decodeMemory[i], result[i]);
+	}
+
+	RLEDecoder<double> rleDecoder2(runs, 5);
+	double decode1[6];
+	double decode2[9];
+	rleDecoder2.decode(decode1, 6);
+	rleDecoder2.decode(decode2, 9);
+
+	double decode1Result[6] = {1.0, 1.0, 1.0, 1.0, 1.0, 2.0};
+	double decode2Result[9] = {3.0, 3.0, 3.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0};
+
+	for(int i = 0; i < 6; ++i) {
+		BOOST_CHECK_EQUAL(decode1[i], decode1Result[i]);
+	}
+	for(int i = 0; i < 9; ++i) {
+		BOOST_CHECK_EQUAL(decode2[i], decode2Result[i]);
+	}
+}
+
+BOOST_AUTO_TEST_CASE( RLEDecoderEncodeDecodeTest ) {
+	double data[20] = {
+			1.0, 1.0, 2.0, 3.0, 3.0,
+			5.0, 5.0, 5.0, 5.0, 5.0,
+			4.0, 4.0, 0.0, 0.0, 0.0,
+			0.0, 0.0, 0.0, 0.0, 0.0
+	};
+
+	RLE<double> rleCoder(data, 20);
+	rleCoder.encode();
+
+	double result[20] = {0.0};
+	RLEDecoder<double> rleDecoder(rleCoder.getData(), rleCoder.getEncodedDataSize());
+	bool decodeResult = rleDecoder.decode(result, 20);
+	BOOST_CHECK(decodeResult);
+
+	for(int i = 0; i < 20; ++i) {
+		BOOST_CHECK_EQUAL(data[i], result[i]);
 	}
 }
 
