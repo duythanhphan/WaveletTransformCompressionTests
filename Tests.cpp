@@ -16,8 +16,27 @@
 #include "RLE.h"
 #include "Encoder.h"
 #include "HuffmanDecoder.h"
+#include "RLEDecoder.h"
 
 const double DOUBLE_CLOSE = 0.0001;
+
+unsigned int getMask(unsigned int size) {
+	unsigned int mask = 0;
+	for(unsigned int i = 0; i < size; ++i) {
+		UnsignedInteger::setBitFromLeft(&mask, i);
+	}
+	return mask;
+}
+
+bool isPrefix(unsigned int prefix, unsigned int code, unsigned int prefixSize) {
+	unsigned int mask = getMask(prefixSize);
+	unsigned int test = code & mask;
+	if(prefix == test) {
+		return true;
+	}
+
+	return false;
+}
 
 BOOST_AUTO_TEST_SUITE( SimpleTests )
 
@@ -182,6 +201,21 @@ BOOST_AUTO_TEST_CASE( ShiftFilledZeroTest ) {
 	UnsignedInteger::setBitFromLeft(&result, 1);
 
 	BOOST_CHECK_EQUAL(test, result);
+}
+
+BOOST_AUTO_TEST_CASE( isPrefixTest ) {
+	unsigned int prefix = 0;
+	UnsignedInteger::setBitFromLeft(&prefix, 1);
+	unsigned int code = 0;
+	UnsignedInteger::setBitFromLeft(&code, 1);
+	UnsignedInteger::setBitFromLeft(&code, 3);
+
+	BOOST_CHECK(isPrefix(prefix, code, 2u));
+
+	unsigned int otherCode = 0;
+	UnsignedInteger::setBitFromLeft(&otherCode, 2);
+	UnsignedInteger::setBitFromLeft(&otherCode, 3);
+	BOOST_CHECK(isPrefix(otherCode, code, 4u) == false);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
@@ -787,13 +821,193 @@ BOOST_AUTO_TEST_CASE( HuffmanDecoderTest ) {
 	unsigned int expectedEncodedBytes = (unsigned int)ceil((double)expectedEncodedBits / (double)UnsignedInteger::NUMBER_OF_BITS);
 	BOOST_CHECK_EQUAL(expectedEncodedBytes, encoder.encodedSize());
 
-	HuffmanDecoder<double> huffmanDecoder(encoder.getData(), encoder.encodedSize(), &decodeTable);
+	HuffmanDecoder<double> huffmanDecoder(encoder.getData(), encoder.encodedSize(), &decodeTable, 14);
 	huffmanDecoder.decode();
 
 	double* pDecodedData = huffmanDecoder.getDecodedData();
 	BOOST_REQUIRE_EQUAL(huffmanDecoder.getDecodedDataSize(), 14u);
 	for(unsigned int i = 0; i < huffmanDecoder.getDecodedDataSize(); ++i) {
 		BOOST_CHECK_EQUAL(pDecodedData[i], data[i]);
+	}
+}
+
+BOOST_AUTO_TEST_CASE( HuffmanDecoderSimpleLongCode ) {
+	std::map<HuffmanCoding<char>::Code, char > decodeTable;
+
+	unsigned int codeA = 0;
+	UnsignedInteger::setBitFromLeft(&codeA, 28);
+	HuffmanCoding<char>::Code code;
+	code.code = codeA;
+	code.size = 29;
+	decodeTable.insert(std::pair<HuffmanCoding<char>::Code, char >(code, 'a'));
+
+	unsigned int codeB = 0;
+	UnsignedInteger::setBitFromLeft(&codeB, 0);
+	UnsignedInteger::setBitFromLeft(&codeB, 2);
+	UnsignedInteger::setBitFromLeft(&codeB, 3);
+	UnsignedInteger::setBitFromLeft(&codeB, 5);
+	UnsignedInteger::setBitFromLeft(&codeB, 6);
+	code.code = codeB;
+	code.size = 7;
+	decodeTable.insert(std::pair<HuffmanCoding<char>::Code, char >(code, 'b'));
+
+	Encoder encoder(10);
+	encoder.encode(codeA, 29);
+	encoder.encode(codeB, 7);
+	encoder.encode(codeB, 7);
+
+	HuffmanDecoder<char> huffmanDecoder(encoder.getData(), encoder.encodedSize(), &decodeTable, 3);
+	huffmanDecoder.decode();
+
+	BOOST_REQUIRE_EQUAL(huffmanDecoder.getDecodedDataSize(), 3u);
+	BOOST_CHECK_EQUAL(huffmanDecoder.getDecodedData()[0], 'a');
+	BOOST_CHECK_EQUAL(huffmanDecoder.getDecodedData()[1], 'b');
+	BOOST_CHECK_EQUAL(huffmanDecoder.getDecodedData()[2], 'b');
+}
+
+BOOST_AUTO_TEST_CASE( HuffmanDecoderCode32 ) {
+	std::map<HuffmanCoding<char>::Code, char > decodeTable;
+
+	unsigned int codeA = 0;
+	UnsignedInteger::setBitFromLeft(&codeA, 3);
+	HuffmanCoding<char>::Code code;
+	code.code = codeA;
+	code.size = 4;
+	decodeTable.insert(std::pair<HuffmanCoding<char>::Code, char >(code, 'a'));
+
+	unsigned int codeB = 0;
+	UnsignedInteger::setBitFromLeft(&codeB, 0);
+	UnsignedInteger::setBitFromLeft(&codeB, 2);
+	code.code = codeB;
+	code.size = 3;
+	decodeTable.insert(std::pair<HuffmanCoding<char>::Code, char >(code, 'b'));
+
+	Encoder encoder(10);
+	for(int i = 0; i < 8; ++i) {
+		encoder.encode(codeA, 4);
+	}
+	encoder.encode(codeB, 3);
+	encoder.encode(codeB, 3);
+	encoder.encode(codeB, 3);
+
+	HuffmanDecoder<char> huffmanDecoder(encoder.getData(), encoder.encodedSize(), &decodeTable, 11);
+	huffmanDecoder.decode();
+
+	BOOST_REQUIRE_EQUAL(huffmanDecoder.getDecodedDataSize(), 11u);
+	for(int i = 0; i < 8; ++i) {
+		BOOST_CHECK_EQUAL(huffmanDecoder.getDecodedData()[i], 'a');
+	}
+	for(int i = 8; i < 11; ++i) {
+		BOOST_CHECK_EQUAL(huffmanDecoder.getDecodedData()[i], 'b');
+	}
+}
+
+BOOST_AUTO_TEST_CASE( HuffmanDecoderLongCode ) {
+	HuffmanCoding<char>::Leaf* pLeafs = new HuffmanCoding<char>::Leaf[8];
+	pLeafs[0].value = 'a';
+	pLeafs[0].count = 8;
+	pLeafs[1].value = 'b';
+	pLeafs[1].count = 5;
+	pLeafs[2].value = 'c';
+	pLeafs[2].count = 10;
+	pLeafs[3].value = 'd';
+	pLeafs[3].count = 12;
+	pLeafs[4].value = 'e';
+	pLeafs[4].count = 4;
+	pLeafs[5].value = 'f';
+	pLeafs[5].count = 3;
+	pLeafs[6].value = 'g';
+	pLeafs[6].count = 7;
+	pLeafs[7].value = 'h';
+	pLeafs[7].count = 15;
+
+	HuffmanCoding<char> huffmanCoding(pLeafs, 8);
+	huffmanCoding.createCodeTable();
+	std::map<char, HuffmanCoding<char>::Code > codeTable;
+	huffmanCoding.getTable(codeTable);
+
+	std::map<char, HuffmanCoding<char>::Code >::iterator it, itPrefix;
+	std::map<HuffmanCoding<char>::Code, char > decodeTable;
+	for(it = codeTable.begin(); it != codeTable.end(); ++it) {
+		decodeTable.insert(std::pair<HuffmanCoding<char>::Code, char >(it->second, it->first));
+	}
+
+	for(it = codeTable.begin(); it != codeTable.end(); ++it) {
+//		printf("%c: %d\n", it->first, it->second.size);
+
+		for(itPrefix = codeTable.begin(); itPrefix != codeTable.end(); ++itPrefix) {
+			if(it == itPrefix) {
+				continue;
+			}
+
+			BOOST_CHECK_MESSAGE(isPrefix(itPrefix->second.code,  it->second.code, itPrefix->second.size) == false,
+					"code for: " << itPrefix->first << " is prefix of: " << it->first);
+		}
+	}
+
+//	printf("code for d: %d\n", codeTable['d'].code);
+
+	char data[64] = {
+			'a', 'a', 'b', 'b', 'b', 'c', 'b', 'b',
+			'a', 'a', 'a', 'c', 'c', 'c', 'c', 'a',
+			'c', 'c', 'a', 'a', 'c', 'h', 'h', 'h',
+			'h', 'c', 'h', 'c', 'h', 'h', 'h', 'h',
+			'f', 'h', 'f', 'h', 'f', 'h', 'h', 'h',
+			'h', 'd', 'd', 'e', 'd', 'g', 'g', 'g',
+			'e', 'd', 'd', 'g', 'd', 'd', 'd', 'g',
+			'd', 'd', 'g', 'd', 'e', 'g', 'e', 'd'
+	};
+	Encoder encoder(10);
+
+//	printf("\n\n");
+	for(int i = 0; i < 64; ++i) {
+		it = codeTable.find(data[i]);
+		BOOST_REQUIRE(it != codeTable.end());
+		encoder.encode(it->second.code, it->second.size);
+	}
+
+	HuffmanDecoder<char> huffmanDecoder(encoder.getData(), encoder.encodedSize(), &decodeTable, 64);
+	huffmanDecoder.decode();
+
+//	for(unsigned int i = 0; i < huffmanDecoder.getDecodedDataSize(); ++i) {
+//		printf("%c ", huffmanDecoder.getDecodedData()[i]);
+//		if((i + 1) % 8 == 0) {
+//			printf("\n");
+//		}
+//	}
+//	printf("\n");
+
+	BOOST_REQUIRE_EQUAL(huffmanDecoder.getDecodedDataSize(), 64u);
+	char* decodedData = huffmanDecoder.getDecodedData();
+	for(unsigned int i = 0; i < huffmanDecoder.getDecodedDataSize(); ++i) {
+		BOOST_CHECK_EQUAL(decodedData[i], data[i]);
+	}
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( RLEDecoderTests )
+
+BOOST_AUTO_TEST_CASE( RLEDecoderDecodeTest) {
+	RLE<double>::Run runs[5];
+	runs[0].run = 5;
+	runs[0].value = 1.0;
+	runs[1].run = 1;
+	runs[1].value = 2.0;
+	runs[2].run = 3;
+	runs[2].value = 3.0;
+	runs[3].run = 6;
+	runs[3].value = 4.0;
+	runs[4].run = 2;
+	runs[4].value = 5.0;
+
+	double decodeMemory[17];
+	RLEDecoder<double> rleDecoder(runs, 5);
+	rleDecoder.decode(decodeMemory, 17);
+
+	double result[17] = {1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 5.0, 5.0};
+	for(int i = 0; i < 17; ++i) {
+		BOOST_CHECK_EQUAL(decodeMemory[i], result[i]);
 	}
 }
 
