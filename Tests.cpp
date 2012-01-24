@@ -276,7 +276,7 @@ BOOST_AUTO_TEST_CASE( SimpleHaarInverseTransformTest ) {
 }
 
 BOOST_AUTO_TEST_CASE( SimpleHaarInverseTransformDifferentWidthHeightTest ) {
-	unsigned int testWidth = 64;
+	unsigned int testWidth = 128;
 	unsigned int testHeight = 128;
 	double* testData = new double[testWidth * testHeight];
 	double inputData = 0.0;
@@ -285,7 +285,7 @@ BOOST_AUTO_TEST_CASE( SimpleHaarInverseTransformDifferentWidthHeightTest ) {
 		testData[i] = inputData;
 	}
 
-	HaarWaveletTransform haarTransform(testData, testWidth, testHeight);
+	HaarWaveletTransform haarTransform(testData, testWidth);
 	haarTransform.transform();
 	haarTransform.inverseTransform();
 
@@ -298,28 +298,29 @@ BOOST_AUTO_TEST_CASE( SimpleHaarInverseTransformDifferentWidthHeightTest ) {
 	delete[] testData;
 }
 
-BOOST_AUTO_TEST_CASE( HaarTransformSizeDifferentFromPowerOfTwo ) {
-	unsigned int testWidth = 65;
-	unsigned int testHeight = 129;
-	double* testData = new double[testWidth * testHeight];
-	double inputData = 0.0;
-	for(unsigned int i = 0; i < testWidth * testHeight; ++i) {
-		inputData += 1.0;
-		testData[i] = inputData;
-	}
-
-	HaarWaveletTransform haarTransform(testData, testWidth, testHeight);
-	haarTransform.transform();
-	haarTransform.inverseTransform();
-
-	for(unsigned int row = 0; row < testHeight; ++row) {
-		for(unsigned int column = 0; column < testWidth; ++column) {
-			BOOST_CHECK_CLOSE(testData[(row * testWidth) + column], haarTransform.getItem(row, column), DOUBLE_CLOSE);
-		}
-	}
-
-	delete[] testData;
-}
+//After chagne in WaveletTransform test not applicable
+//BOOST_AUTO_TEST_CASE( HaarTransformSizeDifferentFromPowerOfTwo ) {
+//	unsigned int testWidth = 65;
+//	unsigned int testHeight = 129;
+//	double* testData = new double[testWidth * testHeight];
+//	double inputData = 0.0;
+//	for(unsigned int i = 0; i < testWidth * testHeight; ++i) {
+//		inputData += 1.0;
+//		testData[i] = inputData;
+//	}
+//
+//	HaarWaveletTransform haarTransform(testData, testWidth, testHeight);
+//	haarTransform.transform();
+//	haarTransform.inverseTransform();
+//
+//	for(unsigned int row = 0; row < testHeight; ++row) {
+//		for(unsigned int column = 0; column < testWidth; ++column) {
+//			BOOST_CHECK_CLOSE(testData[(row * testWidth) + column], haarTransform.getItem(row, column), DOUBLE_CLOSE);
+//		}
+//	}
+//
+//	delete[] testData;
+//}
 
 BOOST_AUTO_TEST_SUITE_END()
 
